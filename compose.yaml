@@ -1,0 +1,60 @@
+name: phish-soar
+services:
+  mailpit:
+    image: axllent/mailpit:v1.27.11
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+      MP_MAX_MESSAGES: 5000
+    ports: ["127.0.0.1:8025:8025", "127.0.0.1:1025:1025"]
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:2.40.7
+    ports: ["127.0.0.1:5678:5678"]
+    environment:
+      N8N_SECURE_COOKIE: "false"
+      WEBHOOK_URL: http://localhost:5678/
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    volumes: ["n8n_data:/home/node/.n8n"]
+
+  webdis:
+    image: nicolas/webdis:0.1.25
+    ports: ["127.0.0.1:7379:7379"]
+
+  analyzer:
+    build: ./analyzer
+    environment:
+      MAILPIT_URL: http://mailpit:8025
+    ports: ["127.0.0.1:8000:8000"]
+    volumes:
+      - ./analyzer:/app
+      - ./dns-sinkhole/base.hosts:/etc/base.hosts:ro
+      - ./quarantine:/quarantine
+      - sinkhole-data:/data
+      - state:/state
+
+  sinkhole:
+    image: coredns/coredns:1.11.1
+    command: ["-conf", "/etc/coredns/Corefile"]
+    volumes:
+      - ./dns-sinkhole/Corefile:/etc/coredns/Corefile:ro
+      - sinkhole-data:/data
+    ports: ["127.0.0.1:${SINKHOLE_HOST_PORT:-5353}:53/udp"]   # 5353 is the contract; override if taken
+    depends_on: [analyzer]
+    networks:
+      default: {ipv4_address: 172.31.50.53}
+
+  gophish:
+    image: gophish/gophish:0.12.1
+    volumes: ["./gophish/config.json:/opt/gophish/config.json"]
+    ports: ["127.0.0.1:3333:3333", "127.0.0.1:8081:80"]
+    networks:
+      default: {ipv4_address: 172.31.50.20}
+
+networks:
+  default:
+    ipam: {config: [{subnet: 172.31.50.0/24}]}
+volumes:
+  n8n_data:
+  sinkhole-data:
+  state:

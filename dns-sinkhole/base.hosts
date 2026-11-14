@@ -1,0 +1,2 @@
+# The fake phishing site resolves to GoPhish until it is blocked.
+172.31.50.20 secure-login.corp-verify.test

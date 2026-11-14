@@ -1,0 +1,9 @@
+. {
+    hosts /data/blocklist.hosts {
+        reload 3s
+        fallthrough
+    }
+    forward . 1.1.1.1
+    errors
+    log
+}
