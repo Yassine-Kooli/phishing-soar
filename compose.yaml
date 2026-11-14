@@ -6,7 +6,7 @@ services:
       MP_SMTP_AUTH_ACCEPT_ANY: 1
       MP_SMTP_AUTH_ALLOW_INSECURE: 1
       MP_MAX_MESSAGES: 5000
-    ports: ["127.0.0.1:8025:8025", "127.0.0.1:1025:1025"]
+    ports: ["127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025", "127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025"]   # override in .env if taken
 
   n8n:
     image: docker.n8n.io/n8nio/n8n:2.40.7
@@ -14,6 +14,8 @@ services:
     environment:
       N8N_SECURE_COOKIE: "false"
       WEBHOOK_URL: http://localhost:5678/
+      N8N_DIAGNOSTICS_ENABLED: "false"          # no outbound telemetry from the lab
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
     extra_hosts: ["host.docker.internal:host-gateway"]
     volumes: ["n8n_data:/home/node/.n8n"]
 
@@ -47,7 +49,7 @@ services:
   gophish:
     image: gophish/gophish:0.12.1
     volumes: ["./gophish/config.json:/opt/gophish/config.json"]
-    ports: ["127.0.0.1:3333:3333", "127.0.0.1:8081:80"]
+    ports: ["127.0.0.1:${GOPHISH_ADMIN_PORT:-3333}:3333", "127.0.0.1:${GOPHISH_PHISH_PORT:-8081}:80"]
     networks:
       default: {ipv4_address: 172.31.50.20}
 

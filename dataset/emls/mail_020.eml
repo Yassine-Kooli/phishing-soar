@@ -1,0 +1,23 @@
+From: billing@invoice-now.test
+To: alice@corp.local
+Subject: Invoice 532
+Message-ID: <ds-020@test>
+Authentication-Results: mx.corp.local; spf=fail; dkim=none; dmarc=fail
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============2562910770574305398=="
+
+--===============2562910770574305398==
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+See attached invoice.
+
+--===============2562910770574305398==
+Content-Type: application/octet-stream
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="invoice.doc"
+MIME-Version: 1.0
+
+QXV0b09wZW4gUEhJU0hfREVNT19NQVJLRVI=
+
+--===============2562910770574305398==--

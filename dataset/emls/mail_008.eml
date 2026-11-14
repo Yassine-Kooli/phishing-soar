@@ -1,0 +1,11 @@
+From: "Support" <it@paypa1-secure.test>
+To: alice@corp.local
+Subject: Verify your account
+Message-ID: <ds-008@test>
+Authentication-Results: mx.corp.local; spf=fail; dkim=none; dmarc=fail
+Reply-To: x@mail-help.test
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+
+Action required immediately. Click http://paypa1-secure.test/login

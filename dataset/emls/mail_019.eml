@@ -1,0 +1,23 @@
+From: billing@invoice-now.test
+To: alice@corp.local
+Subject: Invoice 925
+Message-ID: <ds-019@test>
+Authentication-Results: mx.corp.local; spf=fail; dkim=none; dmarc=fail
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============6439199401039589060=="
+
+--===============6439199401039589060==
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+See attached invoice.
+
+--===============6439199401039589060==
+Content-Type: application/octet-stream
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="invoice.doc"
+MIME-Version: 1.0
+
+QXV0b09wZW4gUEhJU0hfREVNT19NQVJLRVI=
+
+--===============6439199401039589060==--

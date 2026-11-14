@@ -1,0 +1,40 @@
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+
+threshold 25: TP=29 FP=0 TN=35 FN=6 precision=1.00 recall=0.83
+threshold 40: TP=29 FP=0 TN=35 FN=6 precision=1.00 recall=0.83
+threshold 60: TP=5 FP=0 TN=35 FN=30 precision=1.00 recall=0.14
+threshold 75: TP=5 FP=0 TN=35 FN=30 precision=1.00 recall=0.14
+avg analysis time: 0.004 s per mail
+
+Missed phishing (false negatives at 60):
+   mail_001.eml cred 40
+   mail_003.eml cred 40
+   mail_005.eml cred 40
+   mail_006.eml cred 40
+   mail_007.eml cred 40
+   mail_008.eml cred 40
+   mail_012.eml cred 40
+   mail_013.eml cred 40
+   mail_014.eml cred 40
+   mail_015.eml cred 40
+   mail_016.eml attach 50
+   mail_017.eml attach 50
+   mail_018.eml attach 50
+   mail_019.eml attach 50
+   mail_020.eml attach 50
+   mail_021.eml attach 50
+   mail_022.eml attach 50
+   mail_023.eml attach 50
+   mail_024.eml iplink 50
+   mail_025.eml iplink 50
+   mail_026.eml iplink 50
+   mail_027.eml iplink 50
+   mail_028.eml iplink 50
+   mail_029.eml iplink 50
+   mail_030.eml hard 0
+   mail_031.eml hard 0
+   mail_032.eml hard 0
+   mail_033.eml hard 0
+   mail_034.eml hard 0
+   mail_035.eml hard 0
+False alarms (false positives at 60):

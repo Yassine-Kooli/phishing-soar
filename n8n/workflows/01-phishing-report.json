@@ -1,0 +1,185 @@
+{
+  "id": "phishIntake0001",
+  "name": "01-phishing-report",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {"interval": [{"field": "seconds", "secondsInterval": 30}]}
+      },
+      "id": "a1000000-0000-4000-8000-000000000001",
+      "name": "Poll",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://mailpit:8025/api/v1/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {"name": "query", "value": "to:reports@corp.local is:unread"},
+            {"name": "limit", "value": "20"}
+          ]
+        },
+        "options": {"timeout": 5000}
+      },
+      "id": "a1000000-0000-4000-8000-000000000002",
+      "name": "List reports",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 300],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "messages",
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000003",
+      "name": "One report each",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "http://mailpit:8025/api/v1/messages",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"IDs\":[\"{{ $json.ID }}\"],\"Read\":true}",
+        "options": {"timeout": 5000}
+      },
+      "id": "a1000000-0000-4000-8000-000000000004",
+      "name": "Mark read",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 300],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://webdis:7379/",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "text/plain",
+        "body": "=SET/report-{{ $('One report each').item.json.ID }}/1/NX",
+        "options": {"timeout": 5000}
+      },
+      "id": "a1000000-0000-4000-8000-000000000005",
+      "name": "Idempotence",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [880, 300],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2},
+          "conditions": [
+            {
+              "id": "c1000000-0000-4000-8000-000000000001",
+              "leftValue": "={{ $json.SET?.[1] === \"OK\" }}",
+              "rightValue": "",
+              "operator": {"type": "boolean", "operation": "true", "singleValue": true}
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000006",
+      "name": "First time",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1100, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "d1000000-0000-4000-8000-000000000001", "name": "status", "value": "ALREADY_PROCESSED", "type": "string"}
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000007",
+      "name": "Already done",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1320, 420]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://analyzer:8000/analyze/{{ $('One report each').item.json.ID }}",
+        "options": {"timeout": 10000}
+      },
+      "id": "a1000000-0000-4000-8000-000000000008",
+      "name": "Analyze",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1320, 180],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "d2000000-0000-4000-8000-000000000001", "name": "status", "value": "DLQ", "type": "string"},
+            {"id": "d2000000-0000-4000-8000-000000000002", "name": "error", "value": "={{ $json.error?.message ?? JSON.stringify($json.error ?? {}) }}", "type": "string"},
+            {"id": "d2000000-0000-4000-8000-000000000003", "name": "ts", "value": "={{ $now.toISO() }}", "type": "string"}
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000009",
+      "name": "DLQ",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1540, 420]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Poll": {"main": [[{"node": "List reports", "type": "main", "index": 0}]]},
+    "List reports": {
+      "main": [
+        [{"node": "One report each", "type": "main", "index": 0}],
+        [{"node": "DLQ", "type": "main", "index": 0}]
+      ]
+    },
+    "One report each": {"main": [[{"node": "Mark read", "type": "main", "index": 0}]]},
+    "Mark read": {
+      "main": [
+        [{"node": "Idempotence", "type": "main", "index": 0}],
+        [{"node": "DLQ", "type": "main", "index": 0}]
+      ]
+    },
+    "Idempotence": {
+      "main": [
+        [{"node": "First time", "type": "main", "index": 0}],
+        [{"node": "DLQ", "type": "main", "index": 0}]
+      ]
+    },
+    "First time": {
+      "main": [
+        [{"node": "Analyze", "type": "main", "index": 0}],
+        [{"node": "Already done", "type": "main", "index": 0}]
+      ]
+    },
+    "Analyze": {
+      "main": [
+        [],
+        [{"node": "DLQ", "type": "main", "index": 0}]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {"executionOrder": "v1"},
+  "versionId": "01000000-0000-4000-8000-000000000001"
+}

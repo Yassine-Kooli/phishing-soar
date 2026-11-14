@@ -1,0 +1,10 @@
+From: colleague@corp.local
+To: alice@corp.local
+Subject: Shared document
+Message-ID: <ds-030@test>
+Authentication-Results: mx.corp.local; spf=pass; dkim=pass; dmarc=pass
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+
+Please review: http://docs-share.test/f6

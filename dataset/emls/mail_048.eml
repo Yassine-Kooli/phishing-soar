@@ -1,0 +1,10 @@
+From: hr@corp.local
+To: alice@corp.local
+Subject: Meeting 15
+Message-ID: <ds-048@test>
+Authentication-Results: mx.corp.local; spf=pass; dkim=pass; dmarc=pass
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+MIME-Version: 1.0
+
+Agenda: https://github.com/corp/agenda
