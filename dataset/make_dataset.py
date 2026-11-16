@@ -68,6 +68,18 @@ for _ in range(7):    # legit with failing auth (misconfigured sender)
         "Please find the draft at https://partner.test/c",
         "mx.corp.local; spf=softfail; dkim=pass; dmarc=pass")
 
+for _ in range(5):    # redirect wrapper around a known-bad link (failing auth)
+    add("phishing", "redirect", '"Support" <it@corp-verify.test>', "Action required: verify your account",
+        "Continue: https://go.mail-helpdesk.test/out?url=https%3A%2F%2Fsecure-login.corp-verify.test%2Flogin",
+        BAD_AUTH)
+for _ in range(4):    # HARD: compromised account, passing auth, link hidden behind a redirect to a new domain
+    add("phishing", "redirect_hard", "colleague@corp.local", "Shared document",
+        "Please review: https://go.mail-helpdesk.test/out?url=https%3A%2F%2Fdocs-share.test%2Ff"
+        + str(random.randint(1, 99)), OK_AUTH)
+for _ in range(4):    # legit: a search-engine redirect to a legitimate page (must stay legit)
+    add("legit", "redirect_legit", "hr@corp.local", "Benefits guide",
+        "Read more: https://www.google.com/url?q=https%3A%2F%2Fgithub.com%2Fcorp%2Fbenefits", OK_AUTH)
+
 with open("dataset/labels.csv", "w", newline="") as f:
     w = csv.writer(f)
     w.writerow(["file", "label", "kind"])

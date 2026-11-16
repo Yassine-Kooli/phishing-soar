@@ -1,10 +1,11 @@
 """Sends one phishing and one legitimate mail to alice, to test the pipeline before GoPhish is ready."""
 import os
+import _env  # noqa: F401  (ports from .env)
 import smtplib
 from email.message import EmailMessage
 
 SMTP_HOST = os.getenv("SMTP_HOST", "localhost")
-SMTP_PORT = int(os.getenv("SMTP_PORT", "1025"))
+SMTP_PORT = int(os.getenv("SMTP_PORT", os.getenv("MAILPIT_SMTP_PORT", "1025")))
 
 
 def send(frm, to, subj, body, auth=None, reply_to=None):

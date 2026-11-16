@@ -1,0 +1,38 @@
+{
+  "run": "20261116-214806-9029a7",
+  "decision": "approve",
+  "checks": {
+    "simulated_mail_delivered": true,
+    "one_decision_for_two_reports": true,
+    "all_copies_purged": true,
+    "dns_sinkholed": true,
+    "victims_notified": true,
+    "reporter_thanked": true,
+    "analyst_informed": true,
+    "status_executed": true,
+    "legitimate_mail_untouched": true
+  },
+  "timings_s": {
+    "report_to_analyst_email": 22.2,
+    "click_to_response": 2.7,
+    "click_to_purged": 2.8,
+    "click_to_verified": 2.8
+  },
+  "campaign": 13,
+  "approval_id": "a168fce3dd5bcab4",
+  "click_response": "Purged and verified. Notices sent: 4",
+  "approval_status": "executed",
+  "copies_left": 0,
+  "verify": {
+    "id": "a168fce3dd5bcab4",
+    "copies_left": 0,
+    "dns_blocked": {
+      "corp-verify.test": true,
+      "secure-login.corp-verify.test": true
+    },
+    "ok": true
+  },
+  "reporter": "bob@corp.local",
+  "passed": true,
+  "total_s": 27.2
+}

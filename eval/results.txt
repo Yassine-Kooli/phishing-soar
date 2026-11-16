@@ -1,10 +1,8 @@
-WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
-
-threshold 25: TP=29 FP=0 TN=35 FN=6 precision=1.00 recall=0.83
-threshold 40: TP=29 FP=0 TN=35 FN=6 precision=1.00 recall=0.83
-threshold 60: TP=5 FP=0 TN=35 FN=30 precision=1.00 recall=0.14
-threshold 75: TP=5 FP=0 TN=35 FN=30 precision=1.00 recall=0.14
-avg analysis time: 0.004 s per mail
+threshold 25: TP=34 FP=0 TN=39 FN=10 precision=1.00 recall=0.77
+threshold 40: TP=34 FP=0 TN=39 FN=10 precision=1.00 recall=0.77
+threshold 60: TP=10 FP=0 TN=39 FN=34 precision=1.00 recall=0.23
+threshold 75: TP=10 FP=0 TN=39 FN=34 precision=1.00 recall=0.23
+avg analysis time: 0.019 s per mail
 
 Missed phishing (false negatives at 60):
    mail_001.eml cred 40
@@ -37,4 +35,8 @@ Missed phishing (false negatives at 60):
    mail_033.eml hard 0
    mail_034.eml hard 0
    mail_035.eml hard 0
+   mail_076.eml redirect_hard 10
+   mail_077.eml redirect_hard 10
+   mail_078.eml redirect_hard 10
+   mail_079.eml redirect_hard 10
 False alarms (false positives at 60):

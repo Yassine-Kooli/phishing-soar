@@ -1,0 +1,11 @@
+From: "Support" <it@corp-verify.test>
+To: alice@corp.local
+Subject: Action required: verify your account
+Message-ID: <ds-073@test>
+Authentication-Results: mx.corp.local; spf=fail; dkim=none; dmarc=fail
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+Continue: https://go.mail-helpdesk.test/out?url=3Dhttps%3A%2F%2Fsecure-login.=
+corp-verify.test%2Flogin

@@ -1,0 +1,23 @@
+{
+  "run": "20261116-213437-d65b06",
+  "decision": "reject",
+  "checks": {
+    "simulated_mail_delivered": true,
+    "one_decision_for_two_reports": true,
+    "status_rejected": true,
+    "nothing_deleted": true,
+    "no_domain_blocked": true,
+    "legitimate_mail_untouched": true
+  },
+  "timings_s": {
+    "report_to_analyst_email": 22.1,
+    "click_to_response": 0.2
+  },
+  "campaign": 7,
+  "approval_id": "5eb42aed4b51edf4",
+  "click_response": "Rejected: the mails were kept. No action was taken.",
+  "approval_status": "rejected",
+  "copies_left": 3,
+  "passed": true,
+  "total_s": 24.5
+}

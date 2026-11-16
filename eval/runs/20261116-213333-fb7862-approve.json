@@ -1,0 +1,37 @@
+{
+  "run": "20261116-213333-fb7862",
+  "decision": "approve",
+  "checks": {
+    "simulated_mail_delivered": true,
+    "one_decision_for_two_reports": true,
+    "all_copies_purged": true,
+    "dns_sinkholed": true,
+    "victims_notified": false,
+    "reporter_thanked": false,
+    "analyst_informed": true,
+    "status_executed": true,
+    "legitimate_mail_untouched": true
+  },
+  "timings_s": {
+    "report_to_analyst_email": 26.1,
+    "click_to_response": 1.4,
+    "click_to_purged": 1.5,
+    "click_to_verified": 1.5
+  },
+  "campaign": 5,
+  "approval_id": "f64e6f6304639ad8",
+  "click_response": "Purged and verified. Notices sent: 4",
+  "approval_status": "executed",
+  "copies_left": 0,
+  "verify": {
+    "id": "f64e6f6304639ad8",
+    "copies_left": 0,
+    "dns_blocked": {
+      "corp-verify.test": true,
+      "secure-login.corp-verify.test": true
+    },
+    "ok": true
+  },
+  "passed": false,
+  "total_s": 29.9
+}
