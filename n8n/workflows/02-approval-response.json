@@ -1,0 +1,500 @@
+{
+  "id": "approvalResp0002",
+  "name": "02-approval-response",
+  "nodes": [
+    {
+      "id": "b2000000-0000-4000-8000-000000000001",
+      "name": "Approval link",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "5f6b1c2e-0000-4000-8000-000000000001",
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "approval",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000002",
+      "name": "Decide",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=http://analyzer:8000/approvals/{{ $json.query.id }}/decide",
+        "options": {
+          "timeout": 10000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { action: $json.query.action, token: $json.query.token } }}"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000003",
+      "name": "Respond refused",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        440,
+        460
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "=Refused, no action was taken: {{ $json.error?.message ?? 'not valid' }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000004",
+      "name": "Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "b2000000-0000-4000-8000-000000000004-c",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "approved",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "singleValue": false
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000005",
+      "name": "Execute purge",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        240
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=http://analyzer:8000/approvals/{{ $('Decide').first().json.id }}/execute",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000006",
+      "name": "Verify",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        240
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "=http://analyzer:8000/approvals/{{ $('Decide').first().json.id }}/verify",
+        "options": {
+          "timeout": 40000
+        }
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000007",
+      "name": "Verified?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1100,
+        240
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "b2000000-0000-4000-8000-000000000007-c",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": null,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000008",
+      "name": "Build notices",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        160
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const ex = $('Execute purge').first().json;\nconst dec = $('Decide').first().json;\nconst ver = $input.first().json;\nconst blocked = ex.blocked || [];\nconst victims = (ex.recipients || []).filter(t => t !== dec.reporter);\nconst out = [];\nfor (const to of victims) {\n  out.push({ json: { to, subject: 'Phishing e-mail removed from your mailbox',\n    text: 'A phishing e-mail reported by a colleague was removed from your mailbox.\\n' +\n          'Do not click its links or open its attachments.\\n' +\n          'Subject of the removed e-mail: ' + dec.subject } });\n}\nout.push({ json: { to: dec.reporter, subject: 'Thanks: the phishing campaign was removed',\n  text: 'Your report was confirmed as phishing. Copies removed: ' + ex.deleted.length +\n        '. Domains blocked: ' + (blocked.join(', ') || 'none') + '.' } });\nout.push({ json: { to: 'analyst@corp.local', subject: '[purged] approval ' + dec.id + ' verified',\n  text: 'Copies removed: ' + ex.deleted.length + '\\nQuarantine copies: ' + ex.quarantined.map(q => q.path).join(', ') +\n        '\\nDomains blocked: ' + (blocked.join(', ') || 'none') +\n        '\\nDNS sinkhole check: ' + JSON.stringify(ver.dns_blocked) + '\\nCopies left in mailboxes: ' + ver.copies_left } });\nreturn out;\n"
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000009",
+      "name": "Send notices",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1540,
+        160
+      ],
+      "parameters": {
+        "fromEmail": "soc@corp.local",
+        "toEmail": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "text",
+        "text": "={{ $json.text }}",
+        "options": {}
+      },
+      "credentials": {
+        "smtp": {
+          "id": "smtpMailpit01",
+          "name": "Mailpit SMTP"
+        }
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-00000000000a",
+      "name": "Collect",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1760,
+        160
+      ],
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "sent",
+        "options": {}
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-00000000000b",
+      "name": "Respond purged",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1980,
+        160
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "=Purged and verified. Notices sent: {{ $json.sent?.length ?? 0 }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-00000000000c",
+      "name": "Analyst: rejected",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        660,
+        460
+      ],
+      "parameters": {
+        "fromEmail": "soc@corp.local",
+        "toEmail": "analyst@corp.local",
+        "subject": "=[rejected] approval {{ $('Decide').first().json.id }}",
+        "emailFormat": "text",
+        "text": "=The analyst rejected approval {{ $('Decide').first().json.id }}. The mails were kept. No copy was removed and no domain was blocked.",
+        "options": {}
+      },
+      "credentials": {
+        "smtp": {
+          "id": "smtpMailpit01",
+          "name": "Mailpit SMTP"
+        }
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-00000000000d",
+      "name": "Respond rejected",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        460
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "Rejected: the mails were kept. No action was taken.",
+        "options": {}
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-00000000000e",
+      "name": "Analyst: purge failed",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        880,
+        60
+      ],
+      "parameters": {
+        "fromEmail": "soc@corp.local",
+        "toEmail": "analyst@corp.local",
+        "subject": "=[PURGE FAILED] approval {{ $('Decide').first().json.id }}",
+        "emailFormat": "text",
+        "text": "=The purge of approval {{ $('Decide').first().json.id }} failed: {{ $json.error?.message ?? 'unknown error' }}. Check the mailboxes and the quarantine folder before retrying.",
+        "options": {}
+      },
+      "credentials": {
+        "smtp": {
+          "id": "smtpMailpit01",
+          "name": "Mailpit SMTP"
+        }
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-00000000000f",
+      "name": "Analyst: verify failed",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1320,
+        400
+      ],
+      "parameters": {
+        "fromEmail": "soc@corp.local",
+        "toEmail": "analyst@corp.local",
+        "subject": "=[VERIFY FAILED] approval {{ $('Decide').first().json.id }}",
+        "emailFormat": "text",
+        "text": "=The purge ran but verification did not pass: {{ JSON.stringify($json) }}. Check the mailboxes and the DNS sinkhole.",
+        "options": {}
+      },
+      "credentials": {
+        "smtp": {
+          "id": "smtpMailpit01",
+          "name": "Mailpit SMTP"
+        }
+      }
+    },
+    {
+      "id": "b2000000-0000-4000-8000-000000000010",
+      "name": "Respond failed",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1100,
+        60
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "Purge or verification did not complete. The analyst has been notified.",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Approval link": {
+      "main": [
+        [
+          {
+            "node": "Decide",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decide": {
+      "main": [
+        [
+          {
+            "node": "Approved?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond refused",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approved?": {
+      "main": [
+        [
+          {
+            "node": "Execute purge",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Analyst: rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyst: rejected": {
+      "main": [
+        [
+          {
+            "node": "Respond rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute purge": {
+      "main": [
+        [
+          {
+            "node": "Verify",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Analyst: purge failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyst: purge failed": {
+      "main": [
+        [
+          {
+            "node": "Respond failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify": {
+      "main": [
+        [
+          {
+            "node": "Verified?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verified?": {
+      "main": [
+        [
+          {
+            "node": "Build notices",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Analyst: verify failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyst: verify failed": {
+      "main": [
+        [
+          {
+            "node": "Respond failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build notices": {
+      "main": [
+        [
+          {
+            "node": "Send notices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send notices": {
+      "main": [
+        [
+          {
+            "node": "Collect",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect": {
+      "main": [
+        [
+          {
+            "node": "Respond purged",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

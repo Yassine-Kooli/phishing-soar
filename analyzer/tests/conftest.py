@@ -13,3 +13,4 @@ os.environ.setdefault("QUARANTINE_DIR", os.path.join(_tmp, "quarantine"))
 os.environ.setdefault("RULES_DIR", os.path.join(ANALYZER, "yara-rules"))
 os.environ.setdefault("IOC_FILE", os.path.join(ANALYZER, "ioc", "domains.txt"))
 os.environ.setdefault("BASE_HOSTS", os.path.join(_tmp, "no-base.hosts"))  # absent: no base entries
+os.environ.setdefault("APPROVAL_SECRET", "test-secret-not-for-production")

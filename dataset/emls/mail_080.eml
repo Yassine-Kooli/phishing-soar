@@ -1,0 +1,11 @@
+From: hr@corp.local
+To: alice@corp.local
+Subject: Benefits guide
+Message-ID: <ds-080@test>
+Authentication-Results: mx.corp.local; spf=pass; dkim=pass; dmarc=pass
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+Read more: https://www.google.com/url?q=3Dhttps%3A%2F%2Fgithub.com%2Fcorp%2Fb=
+enefits

@@ -3,10 +3,10 @@
 It only reads bytes. It never opens a URL and never runs an attachment.
 It also owns the campaign fingerprints (SQLite) and the DNS sinkhole blocklist.
 """
-import re, os, glob, time, json, hashlib, email, email.utils, sqlite3, threading, socket
+import re, os, glob, time, json, hashlib, hmac, secrets, email, email.utils, sqlite3, threading, socket
 from contextlib import asynccontextmanager
 from email import policy
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs, unquote
 import requests
 import dns.resolver
 from fastapi import FastAPI, HTTPException, Request
@@ -25,6 +25,11 @@ DATA_DIR = os.getenv("DATA_DIR", "/data")                  # shared with the Cor
 QUARANTINE_DIR = os.getenv("QUARANTINE_DIR", "/quarantine")
 STATE_DIR = os.getenv("STATE_DIR", "/state")
 MAX_BODY = 10 * 1024 * 1024
+APPROVAL_SECRET = os.getenv("APPROVAL_SECRET", "")          # HMAC key for approval links (.env)
+APPROVAL_TTL = int(os.getenv("APPROVAL_TTL_SECONDS", "600"))  # analyst has 10 minutes
+MAILBOX_EXCLUDED = {"reports@corp.local", "analyst@corp.local", "soc@corp.local"}
+REDIRECT_KEYS = {"url", "u", "q", "redirect", "redirect_url", "redirect_uri", "next", "continue",
+                 "target", "dest", "destination", "return", "returnurl", "goto", "link"}
 
 @asynccontextmanager
 async def lifespan(_app):
@@ -70,6 +75,19 @@ def defang(u):
     return u.replace("http", "hxxp", 1).replace(".", "[.]")
 
 
+def nested_urls(u):
+    """Links hidden in a redirect parameter, e.g. https://go.test/?url=https%3A%2F%2Fevil.test%2F.
+    They are never opened: they are extracted, scored and checked like any other link."""
+    out = []
+    for k, vals in parse_qs(urlparse(u).query).items():
+        if k.lower() in REDIRECT_KEYS:
+            for v in vals:
+                v = unquote(v).strip()
+                if re.match(r"https?://", v, re.I):
+                    out.append(v.rstrip(".,;"))
+    return out
+
+
 def pick_target(msg):
     """A report contains the suspicious e-mail as an attachment. Return it."""
     for p in msg.walk():
@@ -111,13 +129,20 @@ def analyze_bytes(raw: bytes):
     iocs = load_ioc()
     text = body_text(msg)
 
-    urls = []
-    for u in sorted({x.rstrip(".,;") for x in URL_RE.findall(text)}):
+    urls, seen = [], set()
+    queue = [(x.rstrip(".,;"), None) for x in sorted(set(URL_RE.findall(text)))]
+    while queue:
+        u, parent = queue.pop(0)
+        if u in seen:
+            continue
+        seen.add(u)
         host = (urlparse(u).hostname or "").lower()
         urls.append({"url": u, "defanged": defang(u), "domain": host,
                      "is_ip": bool(re.fullmatch(r"\d+\.\d+\.\d+\.\d+", host)),
                      "punycode": "xn--" in host,
-                     "ioc_hit": any(host == d or host.endswith("." + d) for d in iocs)})
+                     "ioc_hit": any(host == d or host.endswith("." + d) for d in iocs),
+                     "nested_in": parent})
+        queue.extend((n, u) for n in nested_urls(u))
 
     atts = []
     for p in msg.walk():
@@ -150,6 +175,7 @@ def analyze_bytes(raw: bytes):
         "urgency": any(w in low for w in URGENT),
         "lookalike_domain": any(b in fdom for b in BRANDS) and fdom not in ALLOW,
         "ioc_domain_hit": any(u["ioc_hit"] for u in urls) or fdom in iocs,
+        "redirect_wrapper": any(u["nested_in"] for u in urls),
     }
     # The Message-ID is the report's identity (idempotence). Fall back to a hash of the
     # bytes so that two reports without a Message-ID are not mistaken for duplicates.
@@ -184,8 +210,11 @@ def analyze_mailpit(mid: str):
 
 # ---------- score: every point has a written reason ----------
 WEIGHTS = {"auth_fail": 20, "reply_to_mismatch": 10, "display_spoof": 10,
-           "url_ip": 15, "url_punycode": 10, "urgency": 10, "lookalike_domain": 15}
-T_REVIEW, T_PHISH = 25, 60
+           "url_ip": 15, "url_punycode": 10, "urgency": 10, "lookalike_domain": 15,
+           "redirect_wrapper": 10}
+# Chosen on the labelled set (eval/results.txt): 40 keeps zero false alarms and recall 0.77;
+# the guide default (60) reaches only 0.23. Hard cases are still missed; see docs/evaluation.md.
+T_REVIEW, T_PHISH = 25, 40
 
 
 @app.post("/score")
@@ -356,3 +385,200 @@ def verify_dns(domain: str):
     except Exception as e:   # NXDOMAIN, timeout, or sinkhole unreachable: report, never guess
         answers, error = [], type(e).__name__
     return {"domain": domain, "answers": answers, "blocked": "0.0.0.0" in answers, "error": error}
+
+
+# ---------- approval gate: an analyst decides before anything is deleted ----------
+# States: pending -> approved | rejected | expired ; approved -> executed.
+# Purge needs an approved record. A link is valid for one decision and expires after APPROVAL_TTL.
+DB.execute("""create table if not exists approvals(
+    id text primary key, report_id text, campaign_id int, verdict text, status text,
+    created real, expires real, decided real, analysis text, result text)""")
+DB.commit()
+
+
+def _sign(aid, action, expires):
+    if not APPROVAL_SECRET:
+        raise HTTPException(503, "APPROVAL_SECRET is not set: approvals are disabled")
+    msg = f"{aid}|{action}|{int(expires)}".encode()
+    return hmac.new(APPROVAL_SECRET.encode(), msg, hashlib.sha256).hexdigest()
+
+
+def _row(aid):
+    r = DB.execute("select id,status,expires,analysis,campaign_id,report_id,result from approvals where id=?",
+                   (aid,)).fetchone()
+    if not r:
+        raise HTTPException(404, "unknown approval")
+    return {"id": r[0], "status": r[1], "expires": r[2], "analysis": json.loads(r[3]),
+            "campaign_id": r[4], "report_id": r[5], "result": json.loads(r[6]) if r[6] else None}
+
+
+@app.post("/approvals")
+def create_approval(d: dict):
+    """Called for every report. Only a `phishing` verdict needs a human decision."""
+    if d.get("verdict") != "phishing":
+        return {"approval": None}
+    a = d["analysis"]
+    ttl = max(10, min(int(d.get("ttl_seconds", APPROVAL_TTL)), 3600))
+    with LOCK:   # check and insert in one section: two reports at once must not open two requests
+        open_ap = DB.execute("select id,expires from approvals where campaign_id=? and status='pending' "
+                             "and expires>? order by created desc limit 1",
+                             (d.get("campaign_id"), time.time())).fetchone()
+        if open_ap:
+            aid, expires = open_ap
+            return {"approval": {"id": aid, "expires": int(expires), "reused": True,
+                                 "approve_token": _sign(aid, "approve", expires),
+                                 "reject_token": _sign(aid, "reject", expires)}}
+        aid = secrets.token_hex(8)
+        expires = time.time() + ttl
+        DB.execute("insert into approvals(id,report_id,campaign_id,verdict,status,created,expires,analysis) "
+                   "values(?,?,?,?,?,?,?,?)",
+                   (aid, d.get("report_id"), d.get("campaign_id"), "phishing", "pending",
+                    time.time(), expires, json.dumps(a)))
+        DB.commit()
+    return {"approval": {"id": aid, "expires": int(expires),
+                         "approve_token": _sign(aid, "approve", expires),
+                         "reject_token": _sign(aid, "reject", expires)}}
+
+
+@app.post("/approvals/{aid}/decide")
+def decide(aid: str, d: dict):
+    action = str(d.get("action", ""))
+    if action not in ("approve", "reject"):
+        raise HTTPException(400, "action must be approve or reject")
+    with LOCK:
+        r = _row(aid)
+        if not hmac.compare_digest(str(d.get("token", "")), _sign(aid, action, r["expires"])):
+            raise HTTPException(403, "bad token")
+        if r["status"] != "pending":
+            raise HTTPException(409, "already " + r["status"])
+        if time.time() > r["expires"]:
+            DB.execute("update approvals set status='expired' where id=?", (aid,))
+            DB.commit()
+            raise HTTPException(409, "expired: no action taken")
+        new = "approved" if action == "approve" else "rejected"
+        DB.execute("update approvals set status=?, decided=? where id=?", (new, time.time(), aid))
+        DB.commit()
+    return {"id": aid, "status": new, "reporter": r["analysis"]["reporter"],
+            "subject": r["analysis"]["subject"]}
+
+
+@app.post("/lab/reset-approvals")
+def lab_reset_approvals():
+    """Lab only (LAB_RESET=1): expire every open request so a replayed scenario starts clean."""
+    if os.getenv("LAB_RESET") != "1":
+        raise HTTPException(403, "lab reset is disabled (set LAB_RESET=1 in .env for the demo lab)")
+    with LOCK:
+        cur = DB.execute("update approvals set status='expired' where status='pending'")
+        DB.commit()
+    return {"expired": cur.rowcount}
+
+
+@app.get("/approvals/{aid}")
+def approval_status(aid: str):
+    r = _row(aid)
+    return {"id": aid, "status": r["status"], "expires": int(r["expires"]), "reporter": r["analysis"]["reporter"],
+            "report_id": r["report_id"], "campaign_id": r["campaign_id"], "result": r["result"]}
+
+
+# ---------- purge: find, quarantine, delete, block (only after approval) ----------
+def norm_subject(s):
+    s = re.sub(r"^(\s*(fwd?|re)\s*:\s*)+", "", s, flags=re.I).lower()
+    return re.sub(r"\d+", "#", s).strip()
+
+
+def find_matches(a):
+    """Copies of the reported campaign in employee mailboxes.
+    A mailbox copy belongs to the campaign when it is in the same campaign as the report:
+    the same Jaccard rule as campaign() (token similarity >= 0.5). Reporter copies are never matched."""
+    r = requests.get(f"{MAILPIT}/api/v1/messages", params={"limit": 500}, timeout=10)
+    r.raise_for_status()
+    base = tokens(a)
+    matches = []
+    for m in r.json().get("messages", []):
+        to = [t["Address"].lower() for t in m.get("To", [])]
+        if not to or all(t in MAILBOX_EXCLUDED for t in to):
+            continue
+        raw = requests.get(f"{MAILPIT}/api/v1/message/{m['ID']}/raw", timeout=5)
+        raw.raise_for_status()
+        other = analyze_bytes(raw.content)
+        score = jaccard(base, tokens(other))
+        if score >= 0.5:
+            matches.append({"id": m["ID"], "to": to, "subject": m.get("Subject", ""),
+                            "similarity": round(score, 2), "raw": raw.content})
+    return matches
+
+
+def _block_targets(a):
+    doms = {u["domain"] for u in a["urls"]} | {a["sender_domain"]}
+    return sorted(d for d in doms if d and not is_allowed(d))
+
+
+@app.get("/approvals/{aid}/plan")
+def plan(aid: str):
+    """What an approval would purge. Read-only: the analyst can preview before deciding."""
+    r = _row(aid)
+    ms = find_matches(r["analysis"])
+    return {"matches": [{k: v for k, v in m.items() if k != "raw"} for m in ms],
+            "block": _block_targets(r["analysis"])}
+
+
+@app.post("/approvals/{aid}/execute")
+def execute(aid: str):
+    with LOCK:
+        r = _row(aid)
+        if r["status"] != "approved":
+            raise HTTPException(409, "not approved (status: %s)" % r["status"])
+        DB.execute("update approvals set status='executing' where id=?", (aid,))
+        DB.commit()
+    try:
+        ms = find_matches(r["analysis"])
+        # 1. quarantine every copy first; if one write fails, nothing is deleted
+        qdir = os.path.join(QUARANTINE_DIR, aid)
+        os.makedirs(qdir, exist_ok=True)
+        copies = []
+        for m in ms:
+            path = os.path.join(qdir, m["id"] + ".eml")
+            with open(path, "wb") as f:
+                f.write(m["raw"])
+            copies.append({"id": m["id"], "to": m["to"], "sha256": hashlib.sha256(m["raw"]).hexdigest(),
+                           "path": path})
+        # 2. delete from every mailbox that had a copy
+        deleted = []
+        if ms:
+            dr = requests.delete(f"{MAILPIT}/api/v1/messages", json={"IDs": [m["id"] for m in ms]}, timeout=10)
+            dr.raise_for_status()
+            deleted = [m["id"] for m in ms]
+        # 3. block the link and sender domains (allowlisted domains are refused by block())
+        blocked = []
+        for dom in _block_targets(r["analysis"]):
+            if block({"domain": dom, "ttl_seconds": 3600}).get("blocked"):
+                blocked.append(dom)
+        result = {"quarantined": copies, "deleted": deleted, "blocked": blocked,
+                  "recipients": sorted({t for m in ms for t in m["to"]})}
+        with LOCK:
+            DB.execute("update approvals set status='executed', result=? where id=?", (json.dumps(result), aid))
+            DB.commit()
+        return result
+    except Exception as e:
+        with LOCK:
+            DB.execute("update approvals set status='failed', result=? where id=?",
+                       (json.dumps({"error": type(e).__name__, "detail": str(e)[:300]}), aid))
+            DB.commit()
+        raise HTTPException(500, "purge failed, nothing else done: " + type(e).__name__)
+
+
+@app.get("/approvals/{aid}/verify")
+def verify(aid: str):
+    """Did the purge and the block really take effect?"""
+    r = _row(aid)
+    left = len(find_matches(r["analysis"]))
+    targets = (r["result"] or {}).get("blocked", [])
+    # CoreDNS picks up the new hosts file a few seconds after the write: wait for it, up to 20 s
+    deadline = time.time() + 20
+    while True:
+        dns = {d: verify_dns(d)["blocked"] for d in targets}
+        if all(dns.values()) or time.time() > deadline:
+            break
+        time.sleep(1)
+    ok = left == 0 and all(dns.values()) and (r["result"] is not None)
+    return {"id": aid, "copies_left": left, "dns_blocked": dns, "ok": ok}

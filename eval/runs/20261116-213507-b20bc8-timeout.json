@@ -1,0 +1,22 @@
+{
+  "run": "20261116-213507-b20bc8",
+  "decision": "timeout",
+  "checks": {
+    "simulated_mail_delivered": true,
+    "one_decision_for_two_reports": true,
+    "late_approval_refused": true,
+    "status_expired": true,
+    "nothing_deleted": true,
+    "legitimate_mail_untouched": true
+  },
+  "timings_s": {
+    "report_to_analyst_email": 22.1
+  },
+  "campaign": 8,
+  "approval_id": "a5d46f9b7533d4c3",
+  "click_response": "Refused, no action was taken: 409 - \"{\\\"detail\\\":\\\"expired: no action taken\\\"}\"",
+  "approval_status": "expired",
+  "copies_left": 3,
+  "passed": true,
+  "total_s": 625.4
+}

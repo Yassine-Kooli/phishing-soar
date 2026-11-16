@@ -4,6 +4,7 @@ to reports@corp.local as a message/rfc822 attachment (what a real 'report phishi
 usage: python demo/report.py alice bob "verify your Corp account"
 """
 import os
+import _env  # noqa: F401  (ports from .env)
 import sys
 import smtplib
 import email
@@ -12,9 +13,9 @@ from email.message import EmailMessage
 
 import requests
 
-M = os.getenv("MAILPIT_URL", "http://localhost:8025")
+M = os.getenv("MAILPIT_URL", "http://localhost:" + os.getenv("MAILPIT_UI_PORT", "8025"))
 SMTP_HOST = os.getenv("SMTP_HOST", "localhost")
-SMTP_PORT = int(os.getenv("SMTP_PORT", "1025"))
+SMTP_PORT = int(os.getenv("SMTP_PORT", os.getenv("MAILPIT_SMTP_PORT", "1025")))
 
 
 def report(user, subject_part):

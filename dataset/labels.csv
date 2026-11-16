@@ -69,3 +69,16 @@ mail_067.eml,legit,misconfigured
 mail_068.eml,legit,misconfigured
 mail_069.eml,legit,misconfigured
 mail_070.eml,legit,misconfigured
+mail_071.eml,phishing,redirect
+mail_072.eml,phishing,redirect
+mail_073.eml,phishing,redirect
+mail_074.eml,phishing,redirect
+mail_075.eml,phishing,redirect
+mail_076.eml,phishing,redirect_hard
+mail_077.eml,phishing,redirect_hard
+mail_078.eml,phishing,redirect_hard
+mail_079.eml,phishing,redirect_hard
+mail_080.eml,legit,redirect_legit
+mail_081.eml,legit,redirect_legit
+mail_082.eml,legit,redirect_legit
+mail_083.eml,legit,redirect_legit
