@@ -16,6 +16,8 @@ services:
       WEBHOOK_URL: http://localhost:5678/
       N8N_DIAGNOSTICS_ENABLED: "false"          # no outbound telemetry from the lab
       N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"     # the reputation Code node reads URLHAUS_AUTH_KEY
+      URLHAUS_AUTH_KEY: ${URLHAUS_AUTH_KEY:-}   # from .env, never from the repo
     extra_hosts: ["host.docker.internal:host-gateway"]
     volumes: ["n8n_data:/home/node/.n8n"]
 
@@ -27,6 +29,9 @@ services:
     build: ./analyzer
     environment:
       MAILPIT_URL: http://mailpit:8025
+      APPROVAL_SECRET: ${APPROVAL_SECRET:-}           # HMAC key for approval links, from .env only
+      APPROVAL_TTL_SECONDS: ${APPROVAL_TTL_SECONDS:-600}
+      LAB_RESET: ${LAB_RESET:-0}                       # 1 = demo lab: scenario may expire open requests
     ports: ["127.0.0.1:8000:8000"]
     volumes:
       - ./analyzer:/app

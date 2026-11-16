@@ -153,3 +153,21 @@ def test_block_writes_sinkhole_file_atomically():
     with open(path) as f:
         assert "0.0.0.0 secure-login.corp-verify.test" in f.read()
     app.unblock("secure-login.corp-verify.test")
+
+
+# ---------- redirect wrappers: the hidden link is extracted and scored, never opened ----------
+def test_link_hidden_in_redirect_parameter_is_extracted_and_scored():
+    a = app.analyze_bytes(bytes(build(
+        subject="Action required: verify your Corp account", frm="it@corp-verify.test",
+        body="Continue: https://go.mail-helpdesk.test/out?url=https%3A%2F%2Fsecure-login.corp-verify.test%2Flogin",
+        auth="mx; spf=fail; dkim=none; dmarc=fail")))
+    nested = [u for u in a["urls"] if u["nested_in"]]
+    assert [u["domain"] for u in nested] == ["secure-login.corp-verify.test"]
+    assert nested[0]["ioc_hit"] is True
+    assert a["features"]["redirect_wrapper"] is True
+    assert "redirect_wrapper: +10" in app.score({"analysis": a, "reputation": {}})["reasons"]
+
+
+def test_ordinary_link_is_not_a_redirect_wrapper():
+    a = app.analyze_bytes(bytes(build(body="Docs: https://github.com/corp/lunch", frm="hr@corp.local")))
+    assert a["features"]["redirect_wrapper"] is False
