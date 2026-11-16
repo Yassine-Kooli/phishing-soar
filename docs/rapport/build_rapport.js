@@ -39,7 +39,7 @@ kids.push(new Paragraph({ spacing: { after: 720 }, alignment: AlignmentType.CENT
 kids.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 120 }, children: [new TextRun({ text: 'Étudiant : Yassine Kooli', size: 24 })] }));
 kids.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 120 }, children: [new TextRun({ text: 'Enseignant : Dr. Salah Gontara', size: 24 })] }));
 kids.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 120 }, children: [new TextRun({ text: 'Dépôt : phishing-soar (Git, branche main)', size: 24 })] }));
-kids.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 120 }, children: [new TextRun({ text: 'Version du rapport : 16 novembre 2026 (mise à jour après l’étape 8)', size: 24 })] }));
+kids.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 120 }, children: [new TextRun({ text: 'Version du rapport : 16 novembre 2026 (état final : approbation, refus, expiration, restauration)', size: 24 })] }));
 kids.push(new Paragraph({ children: [new PageBreak()] }));
 kids.push(H1('Sommaire'));
 ['1. Résumé', '2. Contexte, objectifs et exigences', '3. État d’avancement', '4. Architecture et services utilisés',
@@ -59,9 +59,9 @@ kids.push(P('Ce qui fonctionne sur la pile, vérifié par exécution :'));
  'regroupement des signalements par campagne (similarité de Jaccard) ;',
  'réponse au rapporteur pour un message sain ; alerte analyste avec deux liens signés (approuver, refuser) pour un phishing ;',
  'après approbation : copie en quarantaine de chaque message, suppression dans toutes les boîtes de la campagne, blocage DNS des domaines, vérification par relecture de la boîte et par résolution DNS ;',
- 'refus, expiration et rejeu des liens sans effet ; aucune suppression sans décision valide.'].forEach(t => kids.push(B(t)));
-kids.push(P('Ce qui n’est pas réalisé : l’intégration de dossiers DFIR-IRIS (étape 7, choix expliqué en section 11), la mesure comparative avec et sans automatisation, et la série complète de répétitions à publier. Les résultats sont donnés pour un jeu de données synthétique, donc optimistes.'));
-kids.push(P('Chiffres principaux : 23 tests unitaires réussis ; 83 courriels synthétiques : rappel 0,77 et précision 1,00 au seuil de 40 (contre 0,23 au seuil 60 du guide) ; analyse moyenne de 14 ms par message ; scénario d’approbation de bout en bout en 10 à 30 secondes depuis le signalement, et environ 2 secondes entre le clic de l’analyste et la purge vérifiée.'));
+ 'refus, expiration et rejeu des liens sans effet ; aucune suppression sans décision valide ;', 'restauration d’une purge possible (demo/restore.py, copies vérifiées par SHA-256) ;', 'liens cachés dans les redirections extraits et notés sans être suivis.'].forEach(t => kids.push(B(t)));
+kids.push(P('Ce qui n’est pas réalisé : l’intégration de dossiers DFIR-IRIS (étape 7, choix expliqué en section 11) et la mesure du temps d’un analyste humain avec la même procédure (la comparaison est décrite, pas chronométrée). Les hard cases (compte compromis) ne sont pas détectés par le score : c’est le contrôle d’approbation qui les couvre. Les résultats sont donnés pour un jeu synthétique, donc optimistes.'));
+kids.push(P('Chiffres principaux : 23 tests unitaires réussis ; 83 courriels synthétiques (34 phishings, 49 légitimes) : rappel 0,77 et précision 1,00 au seuil de 40 (contre 0,23 au seuil 60 du guide) ; analyse moyenne de 19 ms par message ; scénario d’approbation de bout en bout : 18 à 26 secondes entre le signalement et l’alerte analyste, puis 2,5 à 3,7 secondes entre le clic et la purge vérifiée (lot de cinq exécutions).'));
 // ---------- 2 ----------
 kids.push(H1('2. Contexte, objectifs et exigences'));
 kids.push(H2('2.1 Problème'));
@@ -73,7 +73,7 @@ kids.push(TBL(['Exigence du sujet', 'État', 'Preuve dans le projet'], [
  ['Workflow SOAR complet, de l’événement à la réponse vérifiée', 'Fait', 'Deux workflows couvrent le parcours complet ; la vérification (relecture des boîtes et résolution DNS) est dans le scénario (section 8).'],
  ['Déploiement reproductible (Docker Compose)', 'Fait', 'compose.yaml, Makefile, .env.example, docs/runbook.md ; images épinglées (section 4.2).'],
  ['Contrôle humain, actions réversibles ou tracées', 'Fait', 'Purge seulement après décision signée ; copies en quarantaine avec SHA-256 ; restauration possible (demo/restore.py) ; politique en section 10.'],
- ['Évaluation chiffrée', 'Partiel', 'Matrice de confusion sur 83 courriels et runs de scénario (section 9) ; comparaison avec et sans automatisation non encore mesurée.'],
+ ['Évaluation chiffrée', 'Fait (synthétique)', 'Matrice de confusion sur 83 courriels, lot de cinq runs d’approbation, runs de refus et d’expiration, comparaison des actions (docs/evaluation.md) ; temps humain non mesuré.'],
  ['Sans service payant ni licence obligatoire', 'Fait', 'Tous les composants sont libres ; CIRCL sans clé ; URLhaus optionnel.'],
 ], [3, 1.2, 5]));
 kids.push(SP());
@@ -85,12 +85,12 @@ kids.push(TBL(['Étape', 'Contenu', 'État', 'Preuve'], [
  ['3', 'Intake n8n : sondage, verrou, analyse, marquage lu en fin de traitement', 'Fait', 'Figures 2 et 2a à 2c ; scénario section 8'],
  ['4', 'Réputation : CIRCL (hachage) et URLhaus (clé optionnelle)', 'Fait', 'Nœud « Reputation lookups » ; CIRCL indisponible dans le laboratoire, donc review'],
  ['5', 'Jeu d’essai synthétique (83 courriels) et matrice de confusion', 'Fait (synthétique)', 'eval/results.txt, dataset/README.md'],
- ['6', 'Routage safe / review / phishing, réponse au rapporteur, alertes', 'Fait', 'Scénario section 8 ; corrections de routage section 11'],
- ['7', 'Dossiers DFIR-IRIS par campagne', 'Non réalisé', 'Dossier de campagne tenu dans SQLite ; IRIS prévu comme suite (section 11)'],
- ['8', 'Approbation, purge, blocage, vérification', 'Fait', 'Workflow 02 et endpoints /approvals ; runs approuvé et refusé vérifiés (section 8)'],
- ['9', 'Réponses aux parties, tests de pannes', 'Partiel', 'Avis aux victimes et remerciement au rapporteur ; pannes et liens expirés testés (sections 7 et 9)'],
- ['10', 'Campagne GoPhish de démonstration', 'Fait', 'demo/gophish_setup.py crée la campagne ; page de formation sans capture d’identifiants'],
- ['11', 'Mesures de temps et chiffrage', 'Partiel', 'eval/evaluate.py et eval/runs/ (cinq répétitions) ; comparaison manuelle à rédiger'],
+ ['6', 'Routage safe / review / phishing, réponse au rapporteur, alertes', 'Fait', 'Scénario section 8 ; routage corrigé et committé (section 11)'],
+ ['7', 'Dossiers DFIR-IRIS par campagne', 'Non intégré (décision)', 'Dossier de campagne dans SQLite et alerte analyste ; IRIS écarté faute de mémoire (section 11)'],
+ ['8', 'Approbation, purge, blocage, vérification', 'Fait', 'Workflow 02 et endpoints /approvals ; lot de cinq approbations, un refus, un expiration (section 8)'],
+ ['9', 'Réponses aux parties, tests de pannes', 'Fait', 'Avis aux victimes, au rapporteur et à l’analyste ; panne de l’analyseur, lien expiré, lien rejoué et jeton falsifié testés (sections 7 à 9)'],
+ ['10', 'Campagne GoPhish de démonstration', 'Fait', 'demo/gophish_setup.py crée la campagne (trois employés) ; page de formation sans capture d’identifiants'],
+ ['11', 'Mesures de temps et chiffrage', 'Partiel', 'eval/evaluate.py, eval/runs/, eval/scenario_results.md ; temps humain non mesuré (docs/evaluation.md, section 3)'],
  ['12', 'Démonstration et rapport', 'Fait (ce rapport)', 'Captures et sorties réelles (section 8)'],
 ], [0.8, 3.6, 1.4, 4.2]));
 kids.push(SP());
@@ -181,7 +181,7 @@ kids.push(TBL(['Workflow', 'Nœud', 'Type', 'Rôle'], [
  ['01', 'Analyze, Reputation lookups, Score', 'HTTP, Code, HTTP', 'Analyse, réputation, verdict'],
  ['01', 'Verdict', 'Switch', 'safe / review / phishing'],
  ['01', 'Reply safe', 'Envoi e-mail', 'Réponse au rapporteur (seulement pour safe)'],
- ['01', 'Campaign, Request approval, Notify analyst', 'HTTP, HTTP, e-mail', 'Campagne, demande signée, alerte avec liens'],
+ ['01', 'Campaign, Request approval, Notify analyst', 'HTTP, HTTP, e-mail', 'Campagne, demande signée (phishing seulement), alerte avec liens'],
  ['01', 'Mark done, Mark read, DLQ', 'HTTP, HTTP, Set', 'Clôture ; erreurs enregistrées'],
  ['02', 'Approval link (webhook GET)', 'Webhook', 'Reçoit le clic de l’analyste (id, action, token)'],
  ['02', 'Decide, Approved?, Respond refused', 'HTTP, IF, Respond', 'Vérifie la décision ; refus sans action'],
@@ -242,8 +242,25 @@ kids.push(H2('7.3 Décisions de conception'));
 ['Seuil de phishing à 40 au lieu de 60 (section 9.2) ; une constante (T_PHISH) permet de revenir à 60.', 'Expiration = aucune action : l’analyste reçoit « expired » ; aucun rappel n’est envoyé.', 'Le premier signalement d’une campagne porte la demande ; les autres rapporteurs ne reçoivent pas encore de remerciement (limite connue).', 'Les copies conservées dans reports@ sont des preuves ; elles ne sont jamais supprimées.'].forEach(t => kids.push(B(t)));
 // ---------- 8 ----------
 kids.push(H1('8. Démonstration rejouable et résultats'));
-kids.push(P('Le script demo/scenario.py rejoue le parcours complet sur la pile : réinitialisation, campagne GoPhish, deux employés signalent le même e-mail, lecture de l’alerte analyste pour en extraire les liens signés, clic sur la décision via n8n, puis contrôle des boîtes, de l’analyseur et du DNS. Chaque exécution écrit un JSON dans eval/runs/. Sept exécutions sont enregistrées : cinq approbations (trois échecs de mise au point, puis deux passages complets, 213423 et 214555), un refus et un lien expiré. Les deux dernières exécutions sont celles qui servent de référence.'));
-kids.push(H2('8.1 Résultats des exécutions enregistrées (eval/runs)'));
+kids.push(P('Le script demo/scenario.py rejoue le parcours complet sur la pile : réinitialisation, campagne GoPhish, deux employés signalent le même e-mail, lecture de l’alerte analyste pour en extraire les liens signés, clic sur la décision via n8n, puis contrôle des boîtes, de l’analyseur et du DNS. Chaque exécution écrit un JSON dans eval/runs/. Les premières exécutions (212947 à 213437) ont servi à la mise au point : trois échecs de contrôle, puis un passage complet. Elles restent dans eval/runs/ pour traçabilité.'));
+kids.push(H2('8.1 Lot final et exécutions de contrôle'));
+kids.push(TBL(['Mesure (s)', 'min', 'médiane', 'max', 'Ce que cela couvre'], [
+ ['signalement → alerte analyste', '22,2', '24,1', '26,2', 'premier signalement jusqu’au verdict et aux liens ; surtout l’intervalle de sondage de 30 s'],
+ ['clic → réponse', '1,5', '2,7', '3,6', 'clic n8n, purge, quarantaine, blocage'],
+ ['clic → purge vérifiée', '1,6', '2,7', '3,7', 'idem, plus la relecture des boîtes et du DNS'],
+], [2.6, 0.9, 1.2, 0.9, 4.0]));
+kids.push(SP());
+kids.push(TBL(['Contrôle (lot de cinq approbations, code final)', 'Réussi'], [
+ ['copies mises en quarantaine puis supprimées dans toutes les boîtes de la campagne', '5 / 5'],
+ ['domaines bloqués et résolus en 0.0.0.0 par le sinkhole', '5 / 5'],
+ ['une seule décision pour deux signalements de la même campagne', '5 / 5'],
+ ['chaque victime informée (le rapporteur exclu)', '5 / 5'],
+ ['rapporteur remercié ; analyste informé du résultat', '5 / 5'],
+ ['message légitime de la même boîte intact', '5 / 5'],
+], [7.6, 2.0]));
+kids.push(SP());
+kids.push(P('Autres exécutions du même code : refus (copies conservées, domaines non bloqués, notification [rejected]) ; expiration (le lien tardif est refusé avec « expired », rien n’est supprimé). Exécution de contrôle réalisée pour ce rapport : approbation réussie, signalement → alerte 18,1 s, clic → purge vérifiée 2,6 s ; refus réussi.'));
+kids.push(H2('8.1b Historique de mise au point'));
 kids.push(TBL(['Exécution', 'Décision', 'Contrôles réussis', 'Résultat', 'Signalement → alerte (s)', 'Clic → purge vérifiée (s)'], [
  ['212947', 'approve', '5 / 9', 'échec', '12,1', '0,4'],
  ['213245', 'approve', '8 / 9', 'échec', '14,1', '1,6'],
@@ -257,37 +274,41 @@ kids.push(SP());
 kids.push(P('Les trois premières exécutions approuvées ont échoué sur des contrôles de bout en bout (un seul avis par campagne, avis aux victimes, remerciement du rapporteur, compte rendu à l’analyste) ; elles correspondent aux itérations de mise au point. La quatrième passe tous les contrôles : copies supprimées (0 restante), domaines résolus en 0.0.0.0, avis envoyés aux victimes, remerciement, compte rendu, message légitime intact. Ces échecs sont conservés dans eval/runs/ pour traçabilité.'));
 kids.push(P('Remarque sur le chronométrage : il mesure l’automatisation seule (signalement → alerte, clic → purge → vérification). Le temps de lecture et de décision de l’analyste n’est pas inclus, car un clic scripté n’en a pas.'));
 kids.push(H2('8.2 Captures des écrans'));
-kids.push(...SHOT('01-mailpit-inbox.png', 'Figure 3. Boîte Mailpit après un scénario : signalements, réponses et alertes analyste.'));
+kids.push(...SHOT('01-mailpit-inbox.png', 'Figure 3. Boîte Mailpit après le scénario final : signalements, réponses, avis et alertes analyste.'));
 kids.push(...SHOT('02-mailpit-report-forward.png', 'Figure 4. Signalement transféré : l’e-mail suspect est joint en message/rfc822 et n’est jamais ouvert par l’analyste.'));
-kids.push(...SHOT('11-mailpit-analyst-decision.png', 'Figure 5. Alerte analyste avec décision demandée et deux liens signés : approuver, refuser.'));
-kids.push(...SHOT('03-mailpit-analyst-alert.png', 'Figure 6. Alerte analyste pour un phishing (run précédent) : verdict, score, raisons, URL défanged.'));
-kids.push(...SHOT('04-mailpit-reporter-reply.png', 'Figure 7. Réponse automatique au rapporteur pour un message sain (score 0).'));
-kids.push(...SHOT('12-mailpit-after-purge.png', 'Figure 8. Boîte d’un destinataire après approbation : la copie de la campagne a disparu ; le message de l’employé reste dans reports@.'));
-kids.push(...SHOT('13-mailpit-victim-notice.png', 'Figure 9. Avis envoyé à une victime après purge.'));
-kids.push(...SHOT('14-mailpit-analyst-summary.png', 'Figure 10. Compte rendu à l’analyste après exécution : copies supprimées, domaines bloqués, vérification.'));
-kids.push(...SHOT('15-n8n-workflow-02.png', 'Figure 11. Canevas du workflow 02-approval-response (état « Published ») : décision, purge, vérification et avis.'));
-kids.push(...SHOT('16-n8n-executions-02.png', 'Figure 12. Exécutions du workflow 02 après le clic de l’analyste.'));
-kids.push(...SHOT('07-analyzer-swagger.png', 'Figure 13. Interface Swagger de l’analyseur (http://localhost:8000/docs), endpoints de score, de campagne, d’approbation et de blocage.'));
-kids.push(...SHOT('08-gophish-admin-login.png', 'Figure 14. Connexion à l’administration GoPhish (campagne créée par l’API ; certificat auto-signé du laboratoire).', 520));
+kids.push(...SHOT('11-mailpit-analyst-decision.png', 'Figure 5. Alerte analyste : verdict, raisons, URL défanged et deux liens signés (approuver, refuser), valables 10 minutes.'));
+kids.push(...SHOT('04-mailpit-reporter-reply.png', 'Figure 6. Réponse automatique au rapporteur pour un message sain (score 0).'));
+kids.push(...SHOT('12-mailpit-after-purge.png', 'Figure 7. Boîte après approbation : les copies de la campagne ont été retirées ; les signalements des employés restent dans reports@.'));
+kids.push(...SHOT('13-mailpit-victim-notice.png', 'Figure 8. Avis envoyé à une victime dont la copie a été supprimée.'));
+kids.push(...SHOT('17-mailpit-reporter-thanks.png', 'Figure 9. Remerciement envoyé au rapporteur après purge.'));
+kids.push(...SHOT('14-mailpit-analyst-summary.png', 'Figure 10. Compte rendu à l’analyste : copies supprimées, domaines bloqués, vérification.'));
+kids.push(...SHOT('18-mailpit-rejected-notice.png', 'Figure 11. Refus : l’analyste est informé, aucune copie n’est supprimée.'));
+kids.push(...SHOT('19-mailpit-copy-kept-after-reject.png', 'Figure 12. Après refus : la copie de la campagne est toujours dans la boîte de la victime.'));
+kids.push(...SHOT('15-n8n-workflow-02.png', 'Figure 13. Canevas n8n du workflow 02-approval-response (état « Published ») : décision, purge, vérification, avis.'));
+kids.push(...SHOT('16-n8n-executions-02.png', 'Figure 14. Exécutions du workflow 02 : une exécution par clic de l’analyste.'));
+kids.push(...SHOT('20-n8n-execution-02-detail.png', 'Figure 15. Détail d’une exécution du workflow 02 : données de chaque nœud.'));
+kids.push(...SHOT('07-analyzer-swagger.png', 'Figure 16. Interface Swagger de l’analyseur (http://localhost:8000/docs) : endpoints de score, de campagne, d’approbation, de purge et de blocage.'));
+kids.push(...SHOT('08-gophish-admin-login.png', 'Figure 17. Connexion à l’administration GoPhish (campagne créée par l’API ; certificat auto-signé du laboratoire).', 520));
 kids.push(H2('8.3 Blocage DNS et vérification'));
-kids.push(...SHOT('term-dns.png', 'Figure 15. Test réel : résolution avant blocage (172.31.50.20), après blocage (0.0.0.0), vérification /verify/dns, restauration.', 600));
+kids.push(...SHOT('term-dns.png', 'Figure 18. Test réel : résolution avant blocage (172.31.50.20), après blocage (0.0.0.0), vérification /verify/dns, restauration.', 600));
 // ---------- 9 ----------
 kids.push(H1('9. Tests et évaluation'));
 kids.push(H2('9.1 Tests unitaires'));
 kids.push(P('23 tests couvrent le parsing (texte, HTML en base64, forward imbriqué), les URL en adresse IP, les liens dans les redirections, le regroupement de campagnes, le score et les raisons, la règle « une source indisponible n’est jamais safe », la détection YARA, le refus des domaines autorisés, le rejet d’injection de retour à la ligne, l’écriture atomique du fichier de blocage, et les approbations (jeton falsifié ou inversé, lien à usage unique, expiration sans purge, une seule demande par campagne).'));
-kids.push(...SHOT('term-tests.png', 'Figure 16. Sortie réelle de pytest : 23 tests réussis (conteneur python:3.12, requirements-dev.txt).', 600));
+kids.push(...SHOT('term-tests.png', 'Figure 19. Sortie réelle de pytest : 23 tests réussis (conteneur python:3.12, requirements-dev.txt).', 600));
 kids.push(H2('9.2 Évaluation sur le jeu synthétique (83 courriels)'));
 kids.push(P('Le jeu contient 83 courriels générés avec une graine fixe : credential phishing, pièces jointes, liens IP, phishing « difficiles » (compte compromis, authentification réussie), messages internes, marketing plein d’urgence, expéditeurs légitimes mal configurés. eval/confusion_matrix.py interroge l’analyseur en direct.'));
 kids.push(TBL(['Seuil', 'VP', 'FP', 'VN', 'FN', 'Précision', 'Rappel'], [
- ['25', '34', '0', '39', '10', '1,00', '0,77'],
- ['40 (retenu)', '34', '0', '39', '10', '1,00', '0,77'],
+ ['25 (review)', '34', '0', '39', '10', '1,00', '0,77'],
+ ['40 (phishing, retenu)', '34', '0', '39', '10', '1,00', '0,77'],
  ['60 (seuil du guide)', '10', '0', '39', '34', '1,00', '0,23'],
  ['75', '10', '0', '39', '34', '1,00', '0,23'],
 ], [2.6, 1, 1, 1, 1, 1.4, 1.4]));
 kids.push(SP());
-kids.push(...SHOT('term-eval.png', 'Figure 17. Sortie réelle de eval/confusion_matrix.py sur les 83 courriels (relance pour ce rapport).', 600));
-kids.push(P('Lecture : au seuil 60 du guide, le rappel tombe à 0,23 car la plupart des phishings n’atteignent que 40 ou 50 points. Passer à 40 ne crée aucun faux positif sur ce jeu et porte le rappel à 0,77. Les 10 phishings manqués sont des compromis (score 0) et des cas proches de la limite. Limite majeure : le seuil a été choisi sur ce même jeu, qui a été écrit par la même équipe ; le chiffre est donc optimiste. Il faut le confirmer sur des courriels réels (SpamAssassin, corpus de Nazario) avant de le présenter comme une performance.'));
-kids.push(P('Temps d’analyse moyen : 14 ms par message dans la relance.'));
+kids.push(...SHOT('term-eval.png', 'Figure 20. Sortie réelle de eval/confusion_matrix.py sur les 83 courriels (relance pour ce rapport).', 600));
+kids.push(P('Répartition au seuil 40 : toutes les familles de phishing sont détectées sauf les compromis et les redirections vers domaine neuf ; les 49 messages légitimes (internes, marketing urgent, expéditeurs mal configurés, recherche redirigée) passent tous.'));
+kids.push(P('Lecture : au seuil 60 du guide, le rappel tombe à 0,23 car la plupart des phishings n’atteignent que 40 ou 50 points. Passer à 40 ne crée aucun faux positif sur ce jeu et porte le rappel à 0,77. Les 10 phishings manqués sont les compromis (6 cas, score 0) et des redirections vers un domaine neuf (4 cas, score 10) : aucun signal local ne les distingue des messages légitimes. Limite majeure : le seuil a été choisi sur ce même jeu, qui a été écrit par la même équipe ; le chiffre est donc optimiste. Il faut le confirmer sur des courriels réels (SpamAssassin, corpus de Nazario) avant de le présenter comme une performance.'));
+kids.push(P('Temps d’analyse moyen : 19 ms par message dans la relance.'));
 kids.push(H2('9.3 Test de panne de l’analyseur'));
 kids.push(P('Protocole : arrêt de l’analyseur, signalement d’une facture, attente de 45 s, redémarrage, attente de la reprise. Résultat : pendant la panne, le signalement reste non lu (il n’est pas perdu) ; après redémarrage, il est analysé et l’alerte « [review] campagne #2 » part au sondage suivant. La version actuelle du workflow marque le message lu seulement après succès.'));
 // ---------- 10 ----------
@@ -295,8 +316,9 @@ kids.push(H1('10. Contrôle humain et politique d’action'));
 kids.push(TBL(['Action', 'Mode', 'Réversibilité / trace', 'Vérification après', 'État'], [
  ['Réponse « sain » au rapporteur', 'Automatique', 'Trace dans l’exécution n8n', 'Message visible dans Mailpit', 'Fait'],
  ['Alerte analyste avec liens signés', 'Automatique (information)', 'Trace n8n et e-mail', 'Demande créée dans l’analyseur', 'Fait'],
- ['Purge des copies de la campagne', 'Approuvée par l’analyste', 'Copie SHA-256 en quarantaine ; restauration par demo/restore.py', 'Recherche renvoie 0 copie', 'Fait (runs 213423 et suivants)'],
+ ['Purge des copies de la campagne', 'Approuvée par l’analyste', 'Copie SHA-256 en quarantaine ; restauration par demo/restore.py', 'Recherche renvoie 0 copie', 'Fait (lot final, 5 / 5)'],
  ['Blocage DNS des domaines', 'Approuvé par l’analyste', 'Expiration par TTL (3600 s), levée par DELETE', 'dig et /verify/dns renvoient 0.0.0.0', 'Fait'],
+ ['Restauration d’une purge', 'Décision humaine, jamais automatique', 'Copies renvoyées avec contrôle SHA-256 ; domaines débloqués', 'Copies de retour dans les boîtes', 'Testé (demo/restore.py)'],
  ['Blocage d’un domaine autorisé', 'Interdit', 'Refusé par l’analyseur', '—', 'Fait (test)'],
  ['Création de dossier IRIS', 'Automatique prévu', 'Historique du dossier', 'Identifiant stocké', 'Non réalisé'],
 ], [2.6, 2.0, 2.8, 1.8, 1.4]));
@@ -304,26 +326,28 @@ kids.push(SP());
 // ---------- 11 ----------
 kids.push(H1('11. Difficultés, défauts et limites'));
 kids.push(H2('11.1 Défauts constatés et état de correction'));
-kids.push(N('Réponse « sain » envoyée pour un verdict review. Pendant les essais, la facture (review, score 50) a déclenché la réponse « No phishing indicators, score 0 ». Dans le JSON de travail actuel, seule la sortie « safe » mène à « Reply safe » ; review et phishing mènent à la campagne. Ce point n’a pas été rejoué sur la pile après correction : à vérifier avant la démonstration.'));
-kids.push(N('Marquage « lu » trop tôt et mauvais traitement de plusieurs signalements. Une version précédente marquait le message lu avant l’analyse (perte possible si l’analyseur tombait) et ne traitait que le premier signalement d’un sondage. Ces deux points sont corrigés dans le JSON de travail (marquage après succès ; nœuds par élément). La version committée dans Git doit être mise à jour.'));
+kids.push(N('Réponse « sain » envoyée pour un verdict review (défaut constaté pendant les essais). Pendant les essais, la facture (review, score 50) a déclenché la réponse « No phishing indicators, score 0 ». Dans le JSON de travail actuel, seule la sortie « safe » mène à « Reply safe » ; review et phishing mènent à la campagne. Ce point n’a pas été rejoué sur la pile après correction : à vérifier avant la démonstration.'));
+kids.push(N('Marquage « lu » trop tôt et mauvais traitement de plusieurs signalements. Une version précédente marquait le message lu avant l’analyse (perte possible si l’analyseur tombait) et ne traitait que le premier signalement d’un sondage. Ces deux points sont corrigés et committés (commit d370cb9, branche fusionnée) : marquage après succès, nœuds par élément.'));
 kids.push(N('Erreurs de connexion transitoires dans n8n (EAI_AGAIN vers analyzer) : les nœuds HTTP réessaient trois fois, puis le message reste non lu et la clé expire après 120 s.'));
+kids.push(N('Deux alertes analyste identiques pour une même campagne : chaque rapporteur déclenche son propre e-mail d’alerte, avec les mêmes liens (une seule demande d’approbation, testée). Constaté sur le lot final ; non corrigé.'));
+kids.push(N('Défauts trouvés par les essais en direct et corrigés (détail dans docs/evaluation.md) : verrou posé avant analyse, nœuds lisant seulement le premier élément, deux demandes d’approbation en parallèle, vérification DNS trop précoce, premier décideur avant le second signalement, mauvais destinataires des avis, scripts ignorant .env.'));
 kids.push(N('n8n s’est relancé spontanément pendant les essais (signal SIGTERM puis redémarrage). Cause non identifiée. Son interface exige une connexion, ce qui a limité les captures.'));
 kids.push(H2('11.2 Limites techniques'));
-['Mailpit n’est pas Gmail ni Exchange : les API de purge réelles diffèrent, et les copies sont retrouvées par similarité, pas par identifiant de message.', 'Le blocage DNS est en mémoire dans l’analyseur : un redémarrage le vide (le fichier est alors régénéré).', 'CIRCL était injoignable depuis le laboratoire : les pièces jointes donnent alors review. C’est voulu : une source indisponible n’est jamais « propre ».', 'Un signalement qui échoue en continu est repris toutes les 120 s sans nombre maximal de tentatives.', 'Seul le premier rapporteur d’une campagne reçoit le remerciement ; les autres ne sont pas encore remerciés par e-mail.', 'Le jeu de données est synthétique et le seuil 40 a été choisi sur ce jeu : les résultats sont optimistes.'].forEach(t => kids.push(B(t)));
+['Mailpit n’est pas Gmail ni Exchange : les API de purge réelles diffèrent, et les copies sont retrouvées par similarité, pas par identifiant de message.', 'Le blocage DNS est en mémoire dans l’analyseur : un redémarrage le vide (le fichier est alors régénéré).', 'CIRCL était injoignable depuis le laboratoire : les pièces jointes donnent alors review. C’est voulu : une source indisponible n’est jamais « propre ».', 'Un signalement qui échoue en continu est repris toutes les 120 s sans nombre maximal de tentatives.', 'Seul le premier rapporteur d’une campagne reçoit le remerciement ; les autres ne sont pas encore remerciés par e-mail.', 'Le chronométrage ne mesure que l’automatisation : le temps de lecture de l’analyste n’est pas inclus.', 'Le jeu de données est synthétique et le seuil 40 a été choisi sur ce jeu : les résultats sont optimistes.'].forEach(t => kids.push(B(t)));
 kids.push(H2('11.3 Écarts par rapport au guide'));
 ['Ports d’hôte modifiés (conflits locaux).', 'Seuil de phishing à 40 au lieu de 60, justifié par le rappel (section 9.2).', 'DFIR-IRIS non intégré : la base de campagnes est en SQLite, l’alerte analyste sert de dossier. IRIS demande sa propre base et environ 4 Go de mémoire, que le laboratoire ne peut pas fournir en plus de la pile.', 'URLhaus sans clé : « désactivé » et non « indisponible », pour que le scénario sain puisse répondre ; choix à assumer.'].forEach(t => kids.push(B(t)));
 // ---------- 12 ----------
 kids.push(H1('12. Travail restant et conclusion'));
 kids.push(TBL(['Priorité', 'Tâche', 'Raison'], [
- ['1', 'Committer le JSON de travail des deux workflows et mettre à jour le README (tableau d’état encore annoncé « non commencé » pour les étapes 7 à 12)', 'Le dépôt doit décrire ce qui tourne'],
- ['2', 'Rejouer le cas review sur la pile et confirmer l’absence de réponse « score 0» au rapporteur', 'Défaut constaté pendant les essais'],
- ['3', 'Publier la série de cinq exécutions de eval/evaluate.py et la comparaison avec une revue manuelle (docs/evaluation.md)', 'Évaluation chiffrée exigée'],
- ['4', 'Tester le seuil sur un jeu réel (courriels publics)', 'Le chiffre 0,77 est optimiste'],
- ['5', 'Étape 7 : dossiers DFIR-IRIS par campagne, si la mémoire le permet', 'Demandé par le sujet, mais hors périmètre actuel'],
- ['6', 'Limiter le nombre de tentatives et remercier tous les rapporteurs', 'Limites connues'],
+ ['1', 'Corriger les deux alertes analyste par campagne (une seule alerte par demande)', 'Constaté sur le lot final'],
+ ['2', 'Chronométrer une procédure manuelle sur le même incident (docs/evaluation.md, section 3) et comparer', 'Évaluation chiffrée complète exigée'],
+ ['3', 'Tester le seuil 40 sur un corpus réel (SpamAssassin, Nazario)', 'Le chiffre 0,77 est optimiste'],
+ ['4', 'Détecter les compromis de compte (écart avec le comportement habituel de l’expéditeur)', 'Les 6 compromis passent aujourd’hui sans alerte'],
+ ['5', 'Étape 7 : dossiers DFIR-IRIS par campagne, si la mémoire le permet', 'Demandé par le sujet, écarté pour l’instant'],
+ ['6', 'Limiter les tentatives de traitement et remercier tous les rapporteurs', 'Limites connues'],
 ], [1.1, 5.4, 3.1]));
 kids.push(SP());
-kids.push(P('La chaîne est opérationnelle de bout en bout : un signalement est lu sans ouverture, analysé, scoré avec des raisons, regroupé, répondu ou soumis à décision. Après une décision approuvée, les copies sont retirées des boîtes, les domaines sont bloqués et la suppression est vérifiée ; un refus ou un lien expiré ne supprime rien. Le projet n’est pas terminé : l’intégration IRIS, la mesure comparative complète et les corrections des défauts listés restent à faire. Les limites sont décrites ici sans les masquer.'));
+kids.push(P('La chaîne est opérationnelle de bout en bout : un signalement est lu sans ouverture, analysé, scoré avec des raisons, regroupé, répondu ou soumis à décision. Après une décision approuvée, les copies sont retirées des boîtes, les domaines sont bloqués et la suppression est vérifiée ; un refus ou un lien expiré ne supprime rien. Le projet n’est pas terminé : l’intégration IRIS, la mesure comparative avec un analyste humain et la détection des compromis restent à faire. Les limites sont décrites ici sans les masquer.'));
 // ---------- annexes ----------
 kids.push(new Paragraph({ children: [new PageBreak()] }));
 kids.push(H1('Annexe A. Arborescence du dépôt'));
@@ -334,9 +358,9 @@ kids.push(...CODE(['analyzer/            analyseur FastAPI (app.py, Dockerfile, 
  'gophish/             configuration GoPhish',
  'demo/                scenario.py, report.py, send_sample.py, gophish_setup.py, restore.py',
  'dataset/             make_dataset.py, labels.csv, emls/ (83 courriels synthétiques)',
- 'eval/                confusion_matrix.py, evaluate.py, results.txt, runs/ (exécutions JSON)',
+ 'eval/                confusion_matrix.py, evaluate.py, results.txt, scenario_results.md, runs/ (exécutions JSON)',
  'quarantine/          copies brutes avant purge (contenu ignoré par Git)',
- 'docs/                architecture.md, runbook.md, rapport/ (ce rapport et ses captures)',
+ 'docs/                architecture.md, runbook.md, evaluation.md, rapport/ (ce rapport et ses captures)',
  'Makefile             up, down, test, reset',
  '.env.example         variables et ports, sans secrets']));
 kids.push(H1('Annexe B. Interface de l’analyseur'));
